@@ -1,0 +1,52 @@
+JavaScriptの非同期処理（Promiseとasync/await）
+
+JavaScriptはシングルスレッドで動作する言語であり、一度に1つのタスクしか実行できません。そのため、時間のかかる処理（ネットワーク通信やタイマー処理など）を行う際、メインスレッドをブロックしないように「非同期処理」という仕組みが用意されています。
+
+1. コールバック関数
+初期のJavaScriptでは、非同期処理の完了後に実行したい処理をコールバック関数として渡していました。しかし、非同期処理がネストするとコードが複雑になり、可読性が著しく低下する「コールバック地獄」という問題が発生しました。
+
+2. Promise (プロミス)
+ES6 (ES2015) で導入された Promise は、非同期処理の最終的な完了（または失敗）と、その結果の値を表すオブジェクトです。
+Promiseは以下の3つの状態を持ちます：
+- Pending（待機中）: 非同期処理がまだ完了していない初期状態。
+- Fulfilled（履行済み）: 処理が成功し、`resolve()` が呼ばれた状態。`.then()` で結果を受け取ります。
+- Rejected（拒否済み）: 処理が失敗し、`reject()` が呼ばれた状態。`.catch()` でエラーハンドリングを行います。
+
+例：
+```javascript
+const fetchData = () => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const success = true;
+      if (success) {
+        resolve("データの取得に成功しました");
+      } else {
+        reject("データの取得に失敗しました");
+      }
+    }, 1000);
+  });
+};
+
+fetchData()
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+
+3. async / await
+ES2017 で導入された `async` と `await` は、Promiseオブジェクトを用いた非同期処理を、まるで同期処理（上から下へ順番に進む処理）のように書くことができる構文糖衣（シンタックスシュガー）です。
+- `async`: 関数の前に記述することで、その関数が常にPromiseを返すようにします。
+- `await`: `async` 関数の中でのみ使用でき、Promiseの処理が完了（解決または拒否）するまで関数の実行を一時停止します。
+
+例：
+```javascript
+async function main() {
+  try {
+    const result = await fetchData();
+    console.log(result);
+  } catch (error) {
+    console.error(error);
+  }
+}
+main();
+```
+`try...catch` 構文を使用することで、同期処理と同様の直感的なエラーハンドリングが可能になります。
