@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Project-specific temporary/generated dirs
+_upload_temp/
+_site/
+.class_materials/thumbnails/
+.class_materials/_thumbnails/
+
+# Streamlit config (if custom)
+.streamlit/config.toml
