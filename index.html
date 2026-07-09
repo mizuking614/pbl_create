@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 類題作成アシスタント</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- ヘッダー -->
+        <header class="app-header">
+            <div class="logo-container">
+                <span class="logo-icon">💡</span>
+                <h1>AI 類題作成アシスタント</h1>
+            </div>
+            <div class="api-key-container">
+                <span id="apiProviderBadge" class="provider-badge hidden"></span>
+                <input type="password" id="apiKeyInput" placeholder="Gemini または OpenAI のAPIキーを入力" />
+                <button id="saveKeyBtn" class="btn btn-secondary">保存</button>
+            </div>
+        </header>
+
+        <!-- メインコンテンツ -->
+        <main class="app-main">
+            <!-- 左エリア: 入力・設定 -->
+            <section class="input-section">
+                <!-- ステップ1: ファイル読み込み -->
+                <div class="card card-step" id="step1Card">
+                    <div class="card-header">
+                        <span class="step-num">1</span>
+                        <h2>学習資料の読み込み</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- ドラッグ＆ドロップエリア -->
+                        <div id="dropZone" class="drop-zone">
+                            <span class="drop-icon">📁</span>
+                            <p>ファイルをドラッグ＆ドロップ、または <span>ファイルを選択</span></p>
+                            <span class="file-types">対応形式: .pdf, .txt, .md, .js, .py, .java, .csv, .json など</span>
+                            <input type="file" id="fileInput" accept=".pdf,.txt,.md,.js,.py,.java,.cpp,.h,.html,.css,.csv,.json,.ts,.tsx" style="display: none;">
+                        </div>
+
+                        <!-- 読み込みステータス/プレビュー -->
+                        <div id="fileStatus" class="file-status hidden">
+                            <div class="file-info">
+                                <span class="file-name" id="statusFileName">-</span>
+                                <span class="file-size" id="statusFileSize">-</span>
+                                <button id="clearFileBtn" class="btn-clear" title="ファイルを解除">×</button>
+                            </div>
+                            <div class="file-preview-container">
+                                <label>プレビュー（編集可能）:</label>
+                                <textarea id="textPreview" placeholder="ここに直接テキストを貼り付けることもできます..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ステップ2: トピックの抽出と選択 -->
+                <div class="card card-step" id="step2Card">
+                    <div class="card-header">
+                        <span class="step-num">2</span>
+                        <h2>学習トピックの選択</h2>
+                    </div>
+                    <div class="card-body">
+                        <button id="extractTopicsBtn" class="btn btn-primary btn-block" disabled>
+                            <span>学習トピックを抽出する</span>
+                            <span class="btn-loader hidden"></span>
+                        </button>
+
+                        <div id="topicsContainer" class="topics-container">
+                            <p class="placeholder-text">※ 学習資料を読み込んだ後、上のボタンを押してトピックを抽出してください。</p>
+                            <div id="topicsList" class="topics-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ステップ3: 問題設定 -->
+                <div class="card card-step" id="step3Card">
+                    <div class="card-header">
+                        <span class="step-num">3</span>
+                        <h2>問題のカスタマイズ</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="difficultySelect">難易度</label>
+                            <select id="difficultySelect">
+                                <option value="初級">初級 (基本的な理解・基礎知識)</option>
+                                <option value="中級" selected>中級 (標準的な応用・理解度チェック)</option>
+                                <option value="上級">上級 (高度な応用・発展問題)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formatSelect">出題形式</label>
+                            <select id="formatSelect">
+                                <option value="選択式" selected>多肢選択式（4択）</option>
+                                <option value="記述式">記述式（穴埋め・短答）</option>
+                                <option value="解説つき自由回答">思考記述式（自由回答＋AI自己採点）</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 右エリア: 問題表示・解答 -->
+            <section class="output-section">
+                <div class="card main-output-card">
+                    <div class="card-header justify-between">
+                        <h2>生成された類題</h2>
+                        <div class="output-controls">
+                            <select id="displayFormat" class="display-format-select">
+                                <option value="text">テキスト表示</option>
+                                <option value="image">画像表示</option>
+                            </select>
+                            <button id="generateQuestionBtn" class="btn btn-accent" disabled>
+                                <span>類題を生成する 🚀</span>
+                                <span class="btn-loader hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body text-center" id="questionOutputArea">
+                        <!-- 初期表示プレースホルダー -->
+                        <div id="outputPlaceholder" class="output-placeholder">
+                            <div class="placeholder-icon">✍️</div>
+                            <h3>問題がまだ作成されていません</h3>
+                            <p>左側のステップを完了し、トピックを選択して「類題を生成する」をクリックしてください。</p>
+                        </div>
+
+                        <!-- ローディング -->
+                        <div id="outputLoader" class="output-loader hidden">
+                            <div class="spinner"></div>
+                            <p id="loaderMessage">AIが問題を作成しています...</p>
+                        </div>
+
+                        <!-- 問題コンテンツ -->
+                        <div id="questionContainer" class="question-container hidden">
+                            <div class="question-header">
+                                <span class="tag tag-difficulty" id="qDifficulty">-</span>
+                                <span class="tag tag-format" id="qFormat">-</span>
+                            </div>
+                            
+                            <div class="question-body">
+                                <p id="qText" class="question-text"></p>
+                                
+                                <!-- 選択式UI -->
+                                <div id="optionsArea" class="options-area hidden"></div>
+
+                                <!-- 記述式UI -->
+                                <div id="textInputArea" class="text-input-area hidden">
+                                    <input type="text" id="userAnswerText" placeholder="ここにあなたの解答を入力してください">
+                                    <button id="submitTextAnswerBtn" class="btn btn-primary">解答を送信</button>
+                                </div>
+
+                                <!-- 思考記述式UI -->
+                                <div id="freeInputArea" class="free-input-area hidden">
+                                    <textarea id="userAnswerFree" placeholder="考えやコードを詳しく記述してください..."></textarea>
+                                    <button id="submitFreeAnswerBtn" class="btn btn-primary">解答を送信</button>
+                                </div>
+                            </div>
+
+                            <!-- 解答判定フィードバック -->
+                            <div id="feedbackArea" class="feedback-area hidden">
+                                <div class="feedback-result" id="feedbackResult">
+                                    <span class="result-icon"></span>
+                                    <span class="result-text"></span>
+                                </div>
+                                <div class="correct-answer-box">
+                                    <strong>正解:</strong> <span id="correctAnswerText"></span>
+                                </div>
+                                <div class="explanation-box">
+                                    <strong>AIの解説:</strong>
+                                    <p id="explanationText"></p>
+                                </div>
+                                <button id="nextQuestionBtn" class="btn btn-secondary mt-4">次の問題を生成する</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- フッター・トースト通知 -->
+        <footer class="app-footer">
+            <p>&copy; 2026 AI 類題作成アシスタント - Web App (ローカル実行版)</p>
+        </footer>
+
+        <div id="toast" class="toast hidden"></div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
