@@ -1,3 +1,4 @@
+
 # Class Materials Compiler
 
 授業資料や手書きメモを、授業ごとのフォルダへ自動分類する Python CLI ツールです。
