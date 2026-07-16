@@ -64,10 +64,32 @@ class AppHandler(SimpleHTTPRequestHandler):
             file_type = self.headers.get("X-File-Type", "")
             data = self.rfile.read(length)
 
-            if file_name.lower().endswith(".pdf") or file_type == "application/pdf":
-                text = self._extract_pdf_text(data)
-            else:
-                text = self._decode_text(data)
+            text = ""
+            try:
+                import tempfile
+                import os
+                from pathlib import Path
+                import class_materials_compiler as cmc
+
+                suffix = Path(file_name).suffix
+                # Create a temporary file in the current directory (workspace)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir=".") as temp_file:
+                    temp_file.write(data)
+                    temp_file_path = Path(temp_file.name)
+
+                try:
+                    text = cmc.extract_text(temp_file_path, "jpn+eng")
+                finally:
+                    if temp_file_path.exists():
+                        os.unlink(temp_file_path)
+            except Exception as e:
+                print(f"Compiler-based extraction failed, falling back: {e}")
+
+            if not text.strip():
+                if file_name.lower().endswith(".pdf") or file_type == "application/pdf":
+                    text = self._extract_pdf_text(data)
+                else:
+                    text = self._decode_text(data)
 
             if not text.strip():
                 self._send_json({"error": "ファイルからテキストを抽出できませんでした。"}, 422)
