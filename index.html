@@ -55,6 +55,16 @@
                             <input type="file" id="fileInput" accept=".pdf,.txt,.md,.js,.py,.java,.cpp,.h,.html,.css,.csv,.json,.ts,.tsx" style="display: none;">
                         </div>
 
+                        <!-- CLE共有URL入力 -->
+                        <div class="form-group">
+                            <label for="cleUrlInput">CLE共有カレンダーURL</label>
+                            <div class="input-with-button">
+                                <input type="url" id="cleUrlInput" placeholder="https://www.cle.osaka-u.ac.jp/.../learn.ics">
+                                <button id="saveCleUrlBtn" class="btn btn-secondary">保存</button>
+                            </div>
+                            <p id="cleUrlStatus" class="hint-text">共有URLを入力して保存すると、次回もすぐに再利用できます。</p>
+                        </div>
+
                         <!-- 読み込みステータス/プレビュー -->
                         <div id="fileStatus" class="file-status hidden">
                             <div class="file-info">
