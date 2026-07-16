@@ -1732,6 +1732,8 @@ async function generateStudyPlan() {
 
     const deadlineDate = new Date(deadline);
     const today = new Date();
+    const todayStrJP = today.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const todayISO = today.toISOString().split('T')[0];
     today.setHours(0, 0, 0, 0);
     deadlineDate.setHours(0, 0, 0, 0);
 
@@ -1796,6 +1798,10 @@ async function generateStudyPlan() {
     // AIプロンプトの作成
     const prompt = `以下の要件に基づいて、大学の課題と、テスト勉強（トピック）の両方をバランスよく配分した完璧な学習計画を日次タスクレベルで作成してください。
 
+【基準となる本日（Day 1）の日付と曜日】
+- 本日の日付: ${todayStrJP} (西暦では ${todayISO} とします)
+※重要: この本日の日付（${todayISO}）を計画の1日目（Day 1）とし、カレンダーの日付（date）を割り当ててください。
+
 【学習目標】
 - 目標名: ${goal}
 - 達成スコア等: ${target}
@@ -1810,10 +1816,11 @@ ${topicSection}
 
 【計画作成の指示】
 1. 今日から期限日までの全日程（${diffDays} 日間）について、各曜日の学習可能時間を超えないように日次タスクを割り振ってください。学習時間が0時間の曜日にはタスクを割り振らないでください。
-2. タスク（taskName）は「[課題] 経済レポートの作成」「[トピック] 完全微分方程式の解法」などの具体的で実行可能な最小単位にしてください。各タスクの所要時間（duration）は分単位（例: 45, 60など）で指定してください。
-3. 大学の課題レポート作成タスク（isAssignment: true）と、通常のテスト勉強トピックのタスク（isAssignment: false）の両方を同じ一日のスケジュール内で共存させてください。
-4. 全体ロードマップ（roadmap）として、週ごとの大まかなフェーズ（テーマと解説）を作成してください。最大で週数の数だけ作成してください（例えば、計画が4週間の場合は4つ）。
-5. 出力は、指定されたJSON構造のみを正確に返却してください。`;
+2. 各タスクの「date」フィールド（YYYY-MM-DD形式）は、本日の日付（${todayISO}）をDay 1として、経過日数に応じて正しいカレンダーの日付を割り当ててください。また、各日付の曜日名（例: 月, 火, 水, 木, 金, 土, 日）を「dayName」に設定してください。
+3. タスク（taskName）は「[課題] 経済レポートの作成」「[トピック] 完全微分方程式の解法」などの具体的で実行可能な最小単位にしてください。各タスクの所要時間（duration）は分単位（例: 45, 60など）で指定してください。
+4. 大学の課題レポート作成タスク（isAssignment: true）と、通常のテスト勉強トピックのタスク（isAssignment: false）の両方を同じ一日のスケジュール内で共存させてください。
+5. 全体ロードマップ（roadmap）として、週ごとの大まかなフェーズ（テーマと解説）を作成してください。最大で週数の数だけ作成してください（例えば、計画が4週間の場合は4つ）。
+6. 出力は、指定されたJSON構造のみを正確に返却してください。`;
 
     const systemInstruction = 'あなたはプロフェッショナルなAI学習コンサルタントです。ユーザーの期限、学習時間、課題の有無を徹底的に分析し、指定されたJSONフォーマットに従って日次レベルで実行可能かつ完璧に最適化された学習プランを作成してください。';
 
@@ -1842,6 +1849,7 @@ ${topicSection}
                         id: { type: 'STRING', description: 'タスク固有の一意のID (例: task_1)' },
                         dayNum: { type: 'INTEGER', description: '計画開始からの経過日数 (1からN)' },
                         dayName: { type: 'STRING', description: '曜日名 (例: 月, 火, 水, 木, 金, 土, 日)' },
+                        date: { type: 'STRING', description: 'タスクの実行日 (YYYY-MM-DD形式)' },
                         isAssignment: { type: 'BOOLEAN', description: '大学課題のタスクかどうか' },
                         topic: { type: 'STRING', description: '関連する学習トピック' },
                         taskName: { type: 'STRING', description: '具体的なタスク内容' },
@@ -1849,7 +1857,7 @@ ${topicSection}
                         status: { type: 'STRING', description: '初期値は "pending" で固定。完了時は "completed"' },
                         difficulty: { type: 'STRING', description: '初期値は null で固定' }
                     },
-                    required: ['id', 'dayNum', 'dayName', 'isAssignment', 'topic', 'taskName', 'duration', 'status']
+                    required: ['id', 'dayNum', 'dayName', 'date', 'isAssignment', 'topic', 'taskName', 'duration', 'status']
                 }
             }
         },
@@ -1891,6 +1899,8 @@ async function rescheduleStudyPlan() {
     const plan = appState.plannerPlan;
     const deadlineDate = new Date(plan.deadline);
     const today = new Date();
+    const todayStrJP = today.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const todayISO = today.toISOString().split('T')[0];
     today.setHours(0, 0, 0, 0);
     deadlineDate.setHours(0, 0, 0, 0);
     
@@ -1961,6 +1971,10 @@ async function rescheduleStudyPlan() {
 
     const prompt = `進行状況とフィードバックに基づいて、残り期限までに実行可能なように学習計画を動的に再構成（リスケジュール）してください。
 
+【基準となる今日の再調整日付と曜日】
+- 本日の日付: ${todayStrJP} (西暦では ${todayISO} とします)
+※重要: この本日の日付（${todayISO}）を基準にして、未完了タスクのカレンダー日付（date）を割り当ててください。
+
 【学習目標】
 - 目標名: ${plan.goal}
 - 残り日数: 今日を含めて残り ${remainingDays} 日間 (期限日: ${plan.deadline})
@@ -1975,8 +1989,8 @@ ${topicStatus}
 - 月曜: ${plan.weeklyHours.Mon}時間, 火曜: ${plan.weeklyHours.Tue}時間, 水曜: ${plan.weeklyHours.Wed}時間, 木曜: ${plan.weeklyHours.Thu}時間, 金曜: ${plan.weeklyHours.Fri}時間, 土曜: ${plan.weeklyHours.Sat}時間, 日曜: ${plan.weeklyHours.Sun}時間
 
 【リスケジュール（再調整）の指示】
-1. すでに「完了（completed）」したタスク（全 ${completedTasks.length} 件）は、新しいタスクリストの中にも「status: "completed"」としてそのままの履歴で含めてください。
-2. 未完了のタスク（残り ${remainingDays} 日分のタスク）は、今日から期限日までの残り日程に曜日ごとの学習可能時間内に収まるように再配分してください。
+1. すでに「完了（completed）」したタスク（全 ${completedTasks.length} 件）は、変更せず「date」「dayName」「status: "completed"」の履歴を含めたままで新しいタスクリストにそのまま含めてください。
+2. 未完了のタスクは、本日の日付（${todayISO}）以降の正しいカレンダー日付（date: YYYY-MM-DD形式）および曜日（dayName）を割り振ってください。各曜日ごとの学習可能時間内に収まるように再配分してください。
 3. 苦手なトピック（${difficultTopics.join(', ')}）については、理解を深めるための「復習タスク（例: 復習や見直し）」を新たに追加してください。
 4. 残り時間に対してタスクが多すぎて収まりきらないと判断した場合は、重要度の低いトピックのタスクを自動で削減し、最も重要なタスクや大学課題の提出タスク（isAssignment: true）を優先して残してください。
 5. 出力は、修正・検証完了後のロードマップと全タスク（完了済み＋再配分された未完了タスク）を含む指定のJSON形式のみを返却してください。`;
@@ -2008,6 +2022,7 @@ ${topicStatus}
                         id: { type: 'STRING' },
                         dayNum: { type: 'INTEGER' },
                         dayName: { type: 'STRING' },
+                        date: { type: 'STRING', description: 'タスクの実行日 (YYYY-MM-DD形式)' },
                         isAssignment: { type: 'BOOLEAN' },
                         topic: { type: 'STRING' },
                         taskName: { type: 'STRING' },
@@ -2015,7 +2030,7 @@ ${topicStatus}
                         status: { type: 'STRING' },
                         difficulty: { type: 'STRING' }
                     },
-                    required: ['id', 'dayNum', 'dayName', 'isAssignment', 'topic', 'taskName', 'duration', 'status']
+                    required: ['id', 'dayNum', 'dayName', 'date', 'isAssignment', 'topic', 'taskName', 'duration', 'status']
                 }
             }
         },
@@ -2091,16 +2106,26 @@ function renderPlannerDashboard() {
         resourceSun.value = plan.weeklyHours.Sun;
     }
 
-    // 今日が計画開始から何日目かを計算
+    // 既存の計画データを読み込み、後方互換性のために date 属性を補完
     const createdAtDate = new Date(plan.createdAt);
     const todayDate = new Date();
     createdAtDate.setHours(0, 0, 0, 0);
     todayDate.setHours(0, 0, 0, 0);
+    
+    plan.tasks.forEach(t => {
+        if (!t.date) {
+            const taskDate = new Date(createdAtDate);
+            taskDate.setDate(taskDate.getDate() + (t.dayNum - 1));
+            t.date = taskDate.toISOString().split('T')[0];
+        }
+    });
+
     const elapsedDays = Math.floor((todayDate - createdAtDate) / (1000 * 60 * 60 * 24)) + 1;
+    const todayStrISO = todayDate.toISOString().split('T')[0];
 
     // 1. 今日のタスク一覧の表示
     todayTasksList.innerHTML = '';
-    const todayTasks = plan.tasks.filter(t => t.dayNum === elapsedDays);
+    const todayTasks = plan.tasks.filter(t => t.date === todayStrISO);
 
     if (todayTasks.length === 0) {
         todayTasksList.innerHTML = `
@@ -2145,7 +2170,7 @@ function renderPlannerDashboard() {
 
     // 2. ロードマップの表示
     roadmapTimeline.innerHTML = '';
-    const currentWeekNum = Math.ceil(elapsedDays / 7);
+    const currentWeekNum = Math.max(1, Math.ceil(elapsedDays / 7));
     plan.roadmap.forEach(rm => {
         const item = document.createElement('div');
         item.className = `roadmap-item ${rm.weekNum === currentWeekNum ? 'active' : ''}`;
@@ -2160,12 +2185,19 @@ function renderPlannerDashboard() {
         roadmapTimeline.appendChild(item);
     });
 
-    // 3. 週間スケジュールの表示
+    // 3. 週間スケジュールの表示 (現在の週の月曜日〜日曜日を表示)
     weeklyScheduleGrid.innerHTML = '';
-    const startDayNum = ((currentWeekNum - 1) * 7) + 1;
-    const endDayNum = startDayNum + 6;
+    
+    // 現在の週の月曜日を特定
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
+    const currentDayOfWeek = todayObj.getDay(); // 0: 日曜日, 1: 月曜日...
+    
+    // 月曜日を週の始まり(idx 0)にするための差分
+    const diffToMonday = todayObj.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(todayObj);
+    monday.setDate(diffToMonday);
 
-    // 曜日対応配列
     const dayNamesJP = ["月", "火", "水", "木", "金", "土", "日"];
     const dayNamesEN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -2173,17 +2205,20 @@ function renderPlannerDashboard() {
         const col = document.createElement('div');
         col.className = 'schedule-day-column';
         
-        // 実際の相対日数
-        const targetDayNum = startDayNum + idx;
-        const isTodayColumn = targetDayNum === elapsedDays;
+        // 各曜日の日付
+        const colDate = new Date(monday);
+        colDate.setDate(monday.getDate() + idx);
+        const colDateStr = colDate.toISOString().split('T')[0];
+        
+        const isTodayColumn = colDateStr === todayStrISO;
         
         const header = document.createElement('div');
         header.className = `schedule-day-header ${isTodayColumn ? 'today' : ''}`;
-        header.innerHTML = `${dayNamesJP[idx]}曜日<br><span style="font-size:0.75rem; font-weight:normal;">Day ${targetDayNum}</span>`;
+        header.innerHTML = `${dayNamesJP[idx]}曜日<br><span style="font-size:0.72rem; font-weight:normal; opacity:0.8;">${colDate.getMonth()+1}/${colDate.getDate()}</span>`;
         col.appendChild(header);
 
         // この曜日のタスク
-        const dayTasks = plan.tasks.filter(t => t.dayNum === targetDayNum);
+        const dayTasks = plan.tasks.filter(t => t.date === colDateStr);
         if (dayTasks.length === 0) {
             const emptyItem = document.createElement('div');
             emptyItem.className = 'schedule-task-item';
