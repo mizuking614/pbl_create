@@ -37,6 +37,9 @@ const nextQuestionBtn = document.getElementById('nextQuestionBtn');
 const toast = document.getElementById('toast');
 const displayFormat = document.getElementById('displayFormat');
 const apiProviderBadge = document.getElementById('apiProviderBadge');
+const cleUrlInput = document.getElementById('cleUrlInput');
+const saveCleUrlBtn = document.getElementById('saveCleUrlBtn');
+const cleUrlStatus = document.getElementById('cleUrlStatus');
 
 // アプリケーション状態
 let appState = {
@@ -46,7 +49,8 @@ let appState = {
     selectedTopics: [],
     currentQuestion: null,
     selectedOption: null,
-    cachedImageDataUrl: null
+    cachedImageDataUrl: null,
+    cleUrl: localStorage.getItem('cle_ical_url') || ''
 };
 
 // 1. 初期化処理
@@ -59,6 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateProviderBadge(savedKey);
         showToast('保存されているAPIキーをロードしました。', 'success');
     }
+
+    // CLE URLの読み込み
+    if (appState.cleUrl) {
+        cleUrlInput.value = appState.cleUrl;
+    }
+    updateCleUrlStatus();
 
     setupEventListeners();
 });
@@ -83,6 +93,34 @@ function setupEventListeners() {
 
     apiKeyInput.addEventListener('input', (e) => {
         updateProviderBadge(e.target.value);
+    });
+
+    // CLE URL保存
+    saveCleUrlBtn.addEventListener('click', () => {
+        const url = cleUrlInput.value.trim();
+        if (!url) {
+            localStorage.removeItem('cle_ical_url');
+            appState.cleUrl = '';
+            updateCleUrlStatus();
+            showToast('CLE共有URLをクリアしました。', 'success');
+            return;
+        }
+
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            showToast('有効なURLを入力してください。', 'error');
+            return;
+        }
+
+        localStorage.setItem('cle_ical_url', url);
+        appState.cleUrl = url;
+        updateCleUrlStatus();
+        showToast('CLE共有URLを保存しました。', 'success');
+    });
+
+    cleUrlInput.addEventListener('input', () => {
+        if (!cleUrlInput.value.trim() && appState.cleUrl) {
+            cleUrlInput.value = appState.cleUrl;
+        }
     });
 
     // ファイル選択ダイアログのトリガー
@@ -266,6 +304,14 @@ function updateProviderBadge(key) {
         apiProviderBadge.classList.remove('hidden');
     } else {
         apiProviderBadge.classList.add('hidden');
+    }
+}
+
+function updateCleUrlStatus() {
+    if (appState.cleUrl) {
+        cleUrlStatus.textContent = '保存済みのCLE共有URLがあります。';
+    } else {
+        cleUrlStatus.textContent = '共有されたCLEのiCal URLを貼り付けて保存してください。';
     }
 }
 

@@ -451,6 +451,36 @@ body::after {
     border-color: var(--color-primary);
 }
 
+.input-with-button {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.input-with-button input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    padding: 10px 14px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+    outline: none;
+}
+
+.input-with-button input:focus {
+    border-color: var(--color-primary);
+}
+
+.hint-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
 /* 右側：出力エリア */
 .main-output-card {
     height: 100%;
