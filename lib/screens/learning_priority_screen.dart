@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/assignment.dart';
 import '../models/schedule_event.dart';
 import '../models/user_routine.dart';
@@ -28,9 +31,12 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
   List<ScheduleEvent> _events = [];
   UserRoutine _routine = UserRoutine.defaultRoutine();
   bool _isLoading = true;
+  String _calendarStatusMessage = '';
 
   double _importanceWeight = 5.0;
   double _urgencyWeight = 5.0;
+  String _assignmentFilter = '';
+  String _assignmentCategoryFilter = 'all';
 
   int _sleepStartHour = 23;
   int _sleepEndHour = 7;
@@ -53,10 +59,45 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
       _isLoading = true;
     });
 
+    final prefs = await SharedPreferences.getInstance();
+    final savedRoutine = prefs.getString('user_routine');
+    if (savedRoutine != null) {
+      try {
+        _routine = UserRoutine.fromMap(jsonDecode(savedRoutine) as Map<String, dynamic>);
+      } catch (_) {
+        _routine = UserRoutine.defaultRoutine();
+      }
+    }
+
+    final savedCompletions = <String, bool>{};
+    final completionJson = prefs.getString('assignment_completions');
+    if (completionJson != null) {
+      try {
+        final decoded = jsonDecode(completionJson) as Map<String, dynamic>;
+        decoded.forEach((id, value) {
+          savedCompletions[id] = value == true;
+        });
+      } catch (_) {
+        savedCompletions.clear();
+      }
+    }
+
     final today = DateTime.now();
     final assignments = await _calendarService.fetchAssignments();
     final events = await _calendarService.fetchScheduleEvents(today);
+    _calendarStatusMessage = _calendarService.lastErrorMessage;
+    final savedAssignments = prefs.getStringList('manual_assignments') ?? [];
+    for (final encoded in savedAssignments) {
+      try {
+        assignments.add(Assignment.fromMap(jsonDecode(encoded) as Map<String, dynamic>));
+      } catch (_) {}
+    }
 
+    for (final assignment in assignments) {
+      assignment.isCompleted = savedCompletions[assignment.id] ?? assignment.isCompleted;
+    }
+
+    if (!mounted) return;
     setState(() {
       _assignments = assignments;
       _events = events;
@@ -80,6 +121,7 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
         mealTimes: _routine.mealTimes,
       );
     });
+    _saveRoutine();
   }
 
   void _toggleAssignmentCompleted(String id) {
@@ -89,6 +131,118 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
         _assignments[index].isCompleted = !_assignments[index].isCompleted;
       }
     });
+    _saveAssignmentCompletions();
+  }
+
+  Future<void> _saveRoutine() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_routine', jsonEncode(_routine.toMap()));
+  }
+
+  Future<void> _saveAssignmentCompletions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final completions = {
+      for (final assignment in _assignments) assignment.id: assignment.isCompleted,
+    };
+    await prefs.setString('assignment_completions', jsonEncode(completions));
+  }
+
+  Future<void> _saveManualAssignments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final manual = _assignments
+        .where((assignment) => assignment.id.startsWith('manual_'))
+        .map((assignment) => jsonEncode(assignment.toMap()))
+        .toList();
+    await prefs.setStringList('manual_assignments', manual);
+  }
+
+  Future<void> _editManualAssignment(Assignment assignment) async {
+    if (!assignment.id.startsWith('manual_')) return;
+    final titleController = TextEditingController(text: assignment.title);
+    final courseController = TextEditingController(text: assignment.courseName);
+    final hoursController = TextEditingController(text: assignment.estimatedHours.toString());
+    var importance = assignment.importance;
+    var dueDate = assignment.dueDate;
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('タスクを編集'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'タスク名')),
+            TextField(controller: courseController, decoration: const InputDecoration(labelText: 'カテゴリ・授業名')),
+            TextField(controller: hoursController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '所要時間（時間）')),
+            ListTile(contentPadding: EdgeInsets.zero, title: const Text('締切'), subtitle: Text('${dueDate.year}/${dueDate.month}/${dueDate.day}'), onTap: () async { final selected = await showDatePicker(context: context, firstDate: DateTime.now().subtract(const Duration(days: 150)), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: dueDate); if (selected != null) setDialogState(() => dueDate = DateTime(selected.year, selected.month, selected.day, 23, 59)); }),
+            DropdownButtonFormField<int>(value: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? importance)),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('キャンセル')),
+            FilledButton(onPressed: () { final title = titleController.text.trim(); final hours = double.tryParse(hoursController.text) ?? assignment.estimatedHours; if (title.isNotEmpty) { final index = _assignments.indexWhere((item) => item.id == assignment.id); if (index != -1) { _assignments[index] = Assignment(id: assignment.id, title: title, courseName: courseController.text.trim().isEmpty ? '手入力タスク' : courseController.text.trim(), dueDate: dueDate, estimatedHours: hours.clamp(0.25, 24), importance: importance, isCompleted: assignment.isCompleted); } Navigator.pop(dialogContext, true); } }, child: const Text('保存')),
+          ],
+        ),
+      ),
+    );
+    titleController.dispose();
+    courseController.dispose();
+    hoursController.dispose();
+    if (updated == true && mounted) {
+      setState(() {});
+      await _saveManualAssignments();
+    }
+  }
+
+  Future<void> _deleteManualAssignment(Assignment assignment) async {
+    if (!assignment.id.startsWith('manual_')) return;
+    setState(() => _assignments.removeWhere((item) => item.id == assignment.id));
+    await _saveManualAssignments();
+    await _saveAssignmentCompletions();
+  }
+
+  Future<void> _showAddAssignmentDialog() async {
+    final titleController = TextEditingController();
+    final courseController = TextEditingController();
+    final hoursController = TextEditingController(text: '1');
+    DateTime dueDate = DateTime.now().add(const Duration(days: 1));
+    int importance = 3;
+
+    final assignment = await showDialog<Assignment>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('タスクを追加'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'タスク名')),
+              TextField(controller: courseController, decoration: const InputDecoration(labelText: 'カテゴリ・授業名')),
+              TextField(controller: hoursController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '所要時間（時間）')),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('締切'),
+                subtitle: Text('${dueDate.year}/${dueDate.month}/${dueDate.day}'),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final selected = await showDatePicker(context: context, firstDate: DateTime.now().subtract(const Duration(days: 150)), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: dueDate);
+                  if (selected != null) setDialogState(() => dueDate = DateTime(selected.year, selected.month, selected.day, 23, 59));
+                },
+              ),
+              DropdownButtonFormField<int>(value: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? 3)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('キャンセル')),
+            FilledButton(onPressed: () { final title = titleController.text.trim(); final hours = double.tryParse(hoursController.text) ?? 1; if (title.isNotEmpty) Navigator.pop(dialogContext, Assignment(id: 'manual_${DateTime.now().microsecondsSinceEpoch}', title: title, courseName: courseController.text.trim().isEmpty ? '手入力タスク' : courseController.text.trim(), dueDate: dueDate, estimatedHours: hours.clamp(0.25, 24), importance: importance)); }, child: const Text('追加')),
+          ],
+        ),
+      ),
+    );
+    titleController.dispose();
+    courseController.dispose();
+    hoursController.dispose();
+    if (assignment == null || !mounted) return;
+    setState(() => _assignments.add(assignment));
+    await _saveManualAssignments();
+    await _saveAssignmentCompletions();
   }
 
   String _formatRemainingTime(DateTime dueDate) {
@@ -152,6 +306,9 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
         backgroundColor: const Color(0xFF1E3A8A),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            IconButton(onPressed: _showAddAssignmentDialog, icon: const Icon(Icons.add_task), tooltip: 'タスクを追加'),
+          ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -165,12 +322,37 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildTodayTab(suggestions),
-          _buildAssignmentsTab(sortedAssignments),
-          _buildRoutineTab(freeSlots),
+          if (_calendarStatusMessage.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFFEF2F2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFFB91C1C), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _calendarStatusMessage,
+                      style: const TextStyle(color: Color(0xFF7F1D1D), fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTodayTab(suggestions),
+                _buildAssignmentsTab(sortedAssignments),
+                _buildRoutineTab(freeSlots),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -361,7 +543,26 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
     );
   }
 
+  List<String> get _assignmentCategories {
+    final categories = <String>{};
+    for (final assignment in _assignments) {
+      final category = assignment.courseName.trim();
+      if (category.isNotEmpty) {
+        categories.add(category);
+      }
+    }
+    final sorted = categories.toList()..sort();
+    return ['all', ...sorted];
+  }
+
   Widget _buildAssignmentsTab(List<Assignment> assignments) {
+    final query = _assignmentFilter.trim().toLowerCase();
+    final categoryFilteredAssignments = _assignmentCategoryFilter == 'all'
+        ? assignments
+        : assignments.where((assignment) => assignment.courseName == _assignmentCategoryFilter).toList();
+    final filteredAssignments = query.isEmpty
+        ? categoryFilteredAssignments
+        : categoryFilteredAssignments.where((assignment) => assignment.title.toLowerCase().contains(query) || assignment.courseName.toLowerCase().contains(query)).toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -423,6 +624,33 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
           ),
           const SizedBox(height: 24),
           const Text(
+            'カテゴリで絞り込み',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _assignmentCategories.contains(_assignmentCategoryFilter) ? _assignmentCategoryFilter : 'all',
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.filter_list),
+            ),
+            items: _assignmentCategories.map((category) {
+              final label = category == 'all' ? 'すべて' : category;
+              return DropdownMenuItem<String>(value: category, child: Text(label));
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _assignmentCategoryFilter = value ?? 'all';
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            decoration: const InputDecoration(labelText: '課題を検索', hintText: '課題名・授業名', prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
+            onChanged: (value) => setState(() => _assignmentFilter = value),
+          ),
+          const SizedBox(height: 16),
+          const Text(
             '📋 CLEカレンダー課題一覧 (優先度順)',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
@@ -430,9 +658,9 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: assignments.length,
+            itemCount: filteredAssignments.length,
             itemBuilder: (context, index) {
-              final a = assignments[index];
+              final a = filteredAssignments[index];
               final score = _priorityEngine.calculateScore(a, DateTime.now(), _importanceWeight, _urgencyWeight);
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -505,11 +733,11 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Checkbox(
-                        value: a.isCompleted,
-                        activeColor: const Color(0xFF388E3C),
-                        onChanged: (_) => _toggleAssignmentCompleted(a.id),
-                      ),
+                      if (a.id.startsWith('manual_')) ...[
+                        IconButton(onPressed: () => _editManualAssignment(a), icon: const Icon(Icons.edit_outlined), tooltip: '編集'),
+                        IconButton(onPressed: () => _deleteManualAssignment(a), icon: const Icon(Icons.delete_outline), tooltip: '削除'),
+                      ],
+                      Checkbox(value: a.isCompleted, activeColor: const Color(0xFF388E3C), onChanged: (_) => _toggleAssignmentCompleted(a.id)),
                     ],
                   ),
                 ),

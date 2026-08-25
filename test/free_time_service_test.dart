@@ -1,9 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pbl_create/models/user_routine.dart';
 import 'package:pbl_create/models/schedule_event.dart';
+import 'package:pbl_create/services/cle_calendar_service.dart';
 import 'package:pbl_create/services/free_time_service.dart';
 
 void main() {
+  group('CleCalendarService Tests', () {
+    test('Should keep a clear error for malformed CLE URLs', () async {
+      SharedPreferences.setMockInitialValues({
+        'cle_ics_url': 'not-a-valid-url',
+      });
+
+      final service = CleCalendarService();
+      final assignments = await service.fetchAssignments();
+
+      expect(assignments, isEmpty);
+      expect(service.lastErrorMessage, contains('URL'));
+    });
+  });
+
   group('FreeTimeService Tests', () {
     final service = FreeTimeService();
     final today = DateTime(2026, 7, 9); // 木曜日

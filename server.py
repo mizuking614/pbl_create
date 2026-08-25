@@ -1,6 +1,8 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 import json
+import sqlite3
+from pathlib import Path
 import urllib.error
 import urllib.request
 from urllib.parse import unquote
@@ -9,10 +11,44 @@ from pypdf import PdfReader
 
 
 OPENAI_URL = "https://api.openai.com/v1/responses"
+DB_PATH = Path(__file__).with_name("pbl_create.db")
+def init_db():
+    with sqlite3.connect(DB_PATH) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS courses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS materials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            """
+        )
 
 
 class AppHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/api/health":
+            self._send_json({"status": "ok"}, 200)
+            return
+        if self.path == "/api/courses":
+            with sqlite3.connect(DB_PATH) as connection:
+                rows = connection.execute("SELECT id, name FROM courses ORDER BY name").fetchall()
+            self._send_json({"courses": [{"id": row[0], "name": row[1]} for row in rows]}, 200)
+            return
+        if self.path == "/api/materials":
+            with sqlite3.connect(DB_PATH) as connection:
+                rows = connection.execute("SELECT id, name FROM materials ORDER BY name").fetchall()
+            self._send_json({"materials": [{"id": row[0], "name": row[1]} for row in rows]}, 200)
+            return
+        self.send_error(404, "Not found")
+
     def do_POST(self):
+        if self.path in ("/api/courses", "/api/materials"):
+            self._create_record(self.path.rsplit("/", 1)[-1])
+            return
         if self.path == "/api/extract-text":
             self._extract_text()
             return
@@ -56,6 +92,28 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
         except Exception as error:
             self._send_json({"error": str(error)}, 500)
+
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        return json.loads(self.rfile.read(length).decode("utf-8"))
+
+    def _create_record(self, record_type):
+        try:
+            payload = self._read_json()
+            name = str(payload.get("name", "")).strip()
+            if not name:
+                self._send_json({"error": "名前を入力してください。"}, 400)
+                return
+            table = "courses" if record_type == "courses" else "materials"
+            with sqlite3.connect(DB_PATH) as connection:
+                connection.execute(
+                    f"INSERT INTO {table}(name) VALUES (?)", (name,)
+                )
+            self._send_json({"name": name}, 201)
+        except sqlite3.IntegrityError:
+            self._send_json({"error": "同じ名前がすでに登録されています。"}, 409)
+        except Exception as error:
+            self._send_json({"error": str(error)}, 400)
 
     def _extract_text(self):
         try:
@@ -104,6 +162,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    init_db()
     server = ThreadingHTTPServer(("127.0.0.1", 8000), AppHandler)
     print("Serving on http://127.0.0.1:8000")
     server.serve_forever()

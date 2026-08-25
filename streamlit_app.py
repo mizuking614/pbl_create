@@ -53,8 +53,8 @@ with st.sidebar:
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
 
-tab_courses, tab_sort, tab_ai, tab_site, tab_attendance, tab_links = st.tabs(
-    ["授業管理", "資料整理", "AI分析", "Webページ", "出席管理", "リンク管理"]
+tab_courses, tab_sort, tab_ai, tab_site, tab_attendance, tab_links, tab_timeline, tab_search, tab_chat = st.tabs(
+    ["授業管理", "資料整理", "AI分析", "Webページ", "出席管理", "リンク管理", "タイムライン", "全文検索", "授業AIチャット"]
 )
 
 with tab_courses:
@@ -479,3 +479,18 @@ with tab_links:
                 pass
             st.success("リンクを追加しました。")
             st.rerun()
+
+with tab_timeline:
+    from src.gui.tab_timeline import render_tab_timeline
+
+    render_tab_timeline()
+
+with tab_search:
+    from src.gui.tab_search import render_tab_search
+
+    render_tab_search()
+
+with tab_chat:
+    from src.gui.tab_chat import render_tab_chat
+
+    render_tab_chat()
