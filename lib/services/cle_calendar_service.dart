@@ -95,6 +95,9 @@ class CleCalendarService {
     lastErrorMessage = '';
     final icsUrl = await _findIcsUrl();
     if (icsUrl == null) {
+      if (lastErrorMessage.contains('形式が正しくありません')) {
+        return [];
+      }
       // 以前のダミーを保持
       await Future.delayed(const Duration(milliseconds: 200));
       final now = DateTime.now();

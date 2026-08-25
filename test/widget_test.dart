@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pbl_create/main.dart';
@@ -10,7 +9,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     // Verify that the portal screen elements exist.
-    expect(find.text('学修支援システム ポータル'), findsOneWidget);
+    expect(find.text('AIタスク管理ポータル'), findsOneWidget);
     expect(find.text('学習優先順位AI'), findsOneWidget);
     expect(find.text('学修計画・類題生成'), findsOneWidget);
     expect(find.text('授業・資料管理'), findsOneWidget);
@@ -52,6 +51,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pump(const Duration(milliseconds: 100));
 
+    await tester.ensureVisible(find.text('授業・資料管理'));
     await tester.tap(find.text('授業・資料管理'));
     await tester.pumpAndSettle();
 

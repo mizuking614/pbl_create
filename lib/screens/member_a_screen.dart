@@ -137,12 +137,12 @@ class _MemberAScreenState extends State<MemberAScreen> {
 
     setState(() {
       _questions = [
-        '「$topic」とは何か、${contextLabel}の観点から自分の言葉で説明してください。',
-        '「$topic」が必要になる具体的な場面を1つ挙げ、${contextLabel}との関係を説明してください。',
-        '「$topic」と関連する概念との違いを、${contextLabel}を例に挙げて説明してください。',
+        '「$topic」とは何か、$contextLabelの観点から自分の言葉で説明してください。',
+        '「$topic」が必要になる具体的な場面を1つ挙げ、$contextLabelとの関係を説明してください。',
+        '「$topic」と関連する概念との違いを、$contextLabelを例に挙げて説明してください。',
       ];
       for (final assignment in contextAssignments.where((item) => item.title.toLowerCase().contains(topic.toLowerCase())).take(2)) {
-        _questions.add('課題「${assignment.title}」で扱う内容を、$topic と${contextLabel}の関係で説明してください。');
+        _questions.add('課題「${assignment.title}」で扱う内容を、$topic と$contextLabelの関係で説明してください。');
       }
     });
     _saveResults();
@@ -171,7 +171,7 @@ class _MemberAScreenState extends State<MemberAScreen> {
                   const SizedBox(height: 12),
                   if (_courses.isNotEmpty)
                     DropdownButtonFormField<String>(
-                      value: _courses.contains(_selectedCourse) ? _selectedCourse : 'all',
+                      initialValue: _courses.contains(_selectedCourse) ? _selectedCourse : 'all',
                       decoration: const InputDecoration(labelText: '授業', border: OutlineInputBorder()),
                       items: ['all', ..._courses].map((course) => DropdownMenuItem(
                         value: course,
@@ -182,7 +182,7 @@ class _MemberAScreenState extends State<MemberAScreen> {
                   if (_courses.isNotEmpty) const SizedBox(height: 12),
                   if (_materials.isNotEmpty)
                     DropdownButtonFormField<String>(
-                      value: _materials.contains(_selectedMaterial) ? _selectedMaterial : 'all',
+                      initialValue: _materials.contains(_selectedMaterial) ? _selectedMaterial : 'all',
                       decoration: const InputDecoration(labelText: '資料', border: OutlineInputBorder()),
                       items: ['all', ..._materials].map((material) => DropdownMenuItem(
                         value: material,

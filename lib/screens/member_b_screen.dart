@@ -82,7 +82,6 @@ class _MemberBScreenState extends State<MemberBScreen> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'docx', 'bmp', 'tif', 'tiff'],
       withData: true,
-      allowCompression: false,
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -98,7 +97,7 @@ class _MemberBScreenState extends State<MemberBScreen> {
           'X-File-Name': file.name,
           'X-File-Type': _mimeTypeFor(file.name),
         },
-        bodyBytes: fileBytes,
+        body: fileBytes,
       );
 
       if (response.statusCode == 200) {

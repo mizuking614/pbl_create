@@ -57,6 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _copyUrl() async {
     if (_currentUrl.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: _currentUrl));
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('CLE URLをコピーしました。')));
@@ -87,7 +88,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '学修支援システム ポータル',
+                    'AIタスク管理ポータル',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -96,7 +97,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '学習に必要な機能へアクセスできます。',
+                    '日々の学習とタスクを管理するための機能へアクセスできます。',
                     style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
                   ),
                   const SizedBox(height: 24),
@@ -228,7 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 28),

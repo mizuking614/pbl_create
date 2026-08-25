@@ -173,7 +173,7 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
             TextField(controller: courseController, decoration: const InputDecoration(labelText: 'カテゴリ・授業名')),
             TextField(controller: hoursController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '所要時間（時間）')),
             ListTile(contentPadding: EdgeInsets.zero, title: const Text('締切'), subtitle: Text('${dueDate.year}/${dueDate.month}/${dueDate.day}'), onTap: () async { final selected = await showDatePicker(context: context, firstDate: DateTime.now().subtract(const Duration(days: 150)), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: dueDate); if (selected != null) setDialogState(() => dueDate = DateTime(selected.year, selected.month, selected.day, 23, 59)); }),
-            DropdownButtonFormField<int>(value: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? importance)),
+            DropdownButtonFormField<int>(initialValue: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? importance)),
           ])),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('キャンセル')),
@@ -226,7 +226,7 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
                   if (selected != null) setDialogState(() => dueDate = DateTime(selected.year, selected.month, selected.day, 23, 59));
                 },
               ),
-              DropdownButtonFormField<int>(value: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? 3)),
+              DropdownButtonFormField<int>(initialValue: importance, decoration: const InputDecoration(labelText: '重要度'), items: [1, 2, 3, 4, 5].map((value) => DropdownMenuItem(value: value, child: Text('$value / 5'))).toList(), onChanged: (value) => setDialogState(() => importance = value ?? 3)),
             ]),
           ),
           actions: [
@@ -629,7 +629,7 @@ class _LearningPriorityScreenState extends State<LearningPriorityScreen> with Si
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _assignmentCategories.contains(_assignmentCategoryFilter) ? _assignmentCategoryFilter : 'all',
+            initialValue: _assignmentCategories.contains(_assignmentCategoryFilter) ? _assignmentCategoryFilter : 'all',
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.filter_list),
