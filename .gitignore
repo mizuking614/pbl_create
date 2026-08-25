@@ -79,6 +79,7 @@ ENV/
 env/
 
 # Project-specific temporary/generated dirs
+.class_materials/
 _upload_temp/
 _site/
 .class_materials/thumbnails/
