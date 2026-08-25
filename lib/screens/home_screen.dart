@@ -49,13 +49,18 @@ class _MyHomePageState extends State<MyHomePage> {
       _currentUrl = url;
     });
     final message = url.isEmpty ? 'CLE URLをクリアしました。' : 'CLE URLを保存しました。';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _copyUrl() async {
     if (_currentUrl.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: _currentUrl));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CLE URLをコピーしました。')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('CLE URLをコピーしました。')));
   }
 
   @override
@@ -63,24 +68,36 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0F172A)),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '学修支援システム ポータル',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    'AIタスク管理ポータル',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '各担当メンバーの機能へアクセスできます。',
+                    '日々の学習とタスクを管理するための機能へアクセスできます。',
                     style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
                   ),
                   const SizedBox(height: 24),
@@ -88,8 +105,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 28),
                   _buildMenuCard(
                     context: context,
-                    title: '学習優先順位AI (あなたの担当)',
-                    description: 'CLEカレンダーから課題を同期し、生活リズムと空き時間を考慮して「今日やるべきこと」を優先度順に自動算出します。',
+                    title: '学習優先順位AI',
+                    description:
+                        'CLEカレンダーから課題を同期し、生活リズムと空き時間を考慮して「今日やるべきこと」を優先度順に自動算出します。',
                     icon: Icons.auto_awesome_rounded,
                     color: const Color(0xFF1E3A8A),
                     destination: const LearningPriorityScreen(),
@@ -97,7 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 16),
                   _buildMenuCard(
                     context: context,
-                    title: '学修計画・類題生成 (メンバーA担当)',
+                    title: '学修計画・類題生成',
                     description: '目標に合わせた学習計画を自動生成し、習熟度に合わせた類題を生成して学力を補強します。',
                     icon: Icons.menu_book_rounded,
                     color: const Color(0xFF0D9488),
@@ -106,8 +124,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 16),
                   _buildMenuCard(
                     context: context,
-                    title: 'ログイン・授業・資料・DB (メンバーB担当)',
-                    description: 'ユーザーログイン、授業登録、学習資料のアップロード、要約、重要語句抽出、練習問題の生成およびデータベース管理。',
+                    title: '授業・資料管理',
+                    description: '授業と学習資料を登録し、端末またはローカルAPIへ保存して学習タスクの整理に利用します。',
                     icon: Icons.storage_rounded,
                     color: const Color(0xFF4F46E5),
                     destination: const MemberBScreen(),
@@ -129,7 +147,11 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             const Text(
               'CLE共有URLの設定',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -144,7 +166,9 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 ElevatedButton(
                   onPressed: _saveUrl,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                  ),
                   child: const Text('保存'),
                 ),
                 const SizedBox(width: 12),
@@ -167,7 +191,9 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             const SizedBox(height: 10),
             Text(
-              _currentUrl.isEmpty ? '現在CLE共有URLは設定されていません。' : '現在のCLE URL: $_currentUrl',
+              _currentUrl.isEmpty
+                  ? '現在CLE共有URLは設定されていません。'
+                  : '現在のCLE URL: $_currentUrl',
               style: const TextStyle(color: Color(0xFF475569)),
             ),
           ],
@@ -203,7 +229,7 @@ class _MyHomePageState extends State<MyHomePage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -242,4 +268,3 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 }
-

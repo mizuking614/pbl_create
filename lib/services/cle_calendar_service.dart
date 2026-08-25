@@ -5,6 +5,8 @@ import '../models/assignment.dart';
 import '../models/schedule_event.dart';
 
 class CleCalendarService {
+  String lastErrorMessage = '';
+
   // CLEからのICS取得先を探す順序:
   // 1) SharedPreferencesの 'cle_ics_url' 設定
   // 見つからない場合は従来のダミーデータにフォールバックします。
@@ -13,10 +15,19 @@ class CleCalendarService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString('cle_ics_url');
-      if (stored != null && stored.isNotEmpty) {
-        return stored;
+      if (stored != null && stored.trim().isNotEmpty) {
+        final uri = Uri.tryParse(stored.trim());
+        if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+          lastErrorMessage = 'CLE URLの形式が正しくありません。URLを確認してください。';
+          return null;
+        }
+        lastErrorMessage = '';
+        return stored.trim();
       }
-    } catch (_) {}
+      lastErrorMessage = 'CLE URLが未設定のため、サンプルデータを表示しています。';
+    } catch (_) {
+      lastErrorMessage = 'CLE URLの読み込み中にエラーが発生しました。';
+    }
 
     return null;
   }
@@ -81,8 +92,12 @@ class CleCalendarService {
 
   // 課題締め切り情報の取得 — ICSを探してパース、なければダミー
   Future<List<Assignment>> fetchAssignments() async {
+    lastErrorMessage = '';
     final icsUrl = await _findIcsUrl();
     if (icsUrl == null) {
+      if (lastErrorMessage.contains('形式が正しくありません')) {
+        return [];
+      }
       // 以前のダミーを保持
       await Future.delayed(const Duration(milliseconds: 200));
       final now = DateTime.now();
@@ -99,10 +114,26 @@ class CleCalendarService {
     }
 
     try {
-      final res = await http.get(Uri.parse(icsUrl));
-      if (res.statusCode != 200) return [];
+      final uri = Uri.tryParse(icsUrl);
+      if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+        lastErrorMessage = 'CLE URLの形式が正しくありません。URLを確認してください。';
+        return [];
+      }
+      final res = await http.get(uri);
+      if (res.statusCode != 200) {
+        lastErrorMessage = 'CLE URLからICSを取得できませんでした。URLを確認してください。';
+        return [];
+      }
       final events = _parseIcs(res.body);
       final now = DateTime.now();
+      final assignmentCutoff = DateTime(
+        now.year,
+        now.month - 5,
+        now.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
       final out = <Assignment>[];
       for (final ev in events) {
         final summary = ev['SUMMARY'] ?? ev['SUMMARY;LANGUAGE=ja'] ?? '';
@@ -123,37 +154,41 @@ class CleCalendarService {
             : null;
         final dtend = dtendRaw.isNotEmpty ? _parseIcsDate(dtendRaw) : null;
         final due = dtend ?? dtstart;
-        if (due != null && due.isAfter(now.subtract(const Duration(days: 7)))) {
-          // 簡易ルール: SUMMARYに「課題」や"提出"が含まれるものを課題として扱う
-          if (summary.contains('課題') ||
-              summary.contains('提出') ||
-              summary.contains('レポート') ||
-              summary.toLowerCase().contains('homework') ||
-              summary.toLowerCase().contains('assignment')) {
-            out.add(
-              Assignment(
-                id:
-                    ev['UID'] ??
-                    ev['SUMMARY'] ??
-                    DateTime.now().toIso8601String(),
-                title: summary.isNotEmpty ? summary : 'CLE課題',
-                courseName: '',
-                dueDate: due,
-                estimatedHours: 1.5,
-                importance: 3,
-              ),
-            );
-          }
+        // 過去の課題も一覧に残し、画面側で「期限超過」と表示する。
+        // 簡易ルール: SUMMARYに課題関連の語が含まれるものを課題として扱う。
+        if (due != null &&
+            due.isAfter(assignmentCutoff) &&
+            (summary.contains('課題') ||
+                summary.contains('提出') ||
+                summary.contains('レポート') ||
+                summary.contains('宿題') ||
+                summary.toLowerCase().contains('homework') ||
+                summary.toLowerCase().contains('assignment'))) {
+          out.add(
+            Assignment(
+              id:
+                  ev['UID'] ??
+                  ev['SUMMARY'] ??
+                  DateTime.now().toIso8601String(),
+              title: summary.isNotEmpty ? summary : 'CLE課題',
+              courseName: '',
+              dueDate: due,
+              estimatedHours: 1.5,
+              importance: 3,
+            ),
+          );
         }
       }
       return out;
     } catch (e) {
+      lastErrorMessage = 'CLE の読込に失敗しました。URL・接続状態を確認してください。';
       return [];
     }
   }
 
   // 予定情報の取得 — 指定日のイベントをICSから読み込む
   Future<List<ScheduleEvent>> fetchScheduleEvents(DateTime date) async {
+    lastErrorMessage = '';
     final icsUrl = await _findIcsUrl();
     if (icsUrl == null) {
       // フォールバックのダミー
@@ -204,8 +239,16 @@ class CleCalendarService {
     }
 
     try {
-      final res = await http.get(Uri.parse(icsUrl));
-      if (res.statusCode != 200) return [];
+      final uri = Uri.tryParse(icsUrl);
+      if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+        lastErrorMessage = 'CLE URLの形式が正しくありません。URLを確認してください。';
+        return [];
+      }
+      final res = await http.get(uri);
+      if (res.statusCode != 200) {
+        lastErrorMessage = 'CLE URLから予定を取得できませんでした。URLを確認してください。';
+        return [];
+      }
       final events = _parseIcs(res.body);
       final targetDayStart = DateTime(date.year, date.month, date.day);
       final targetDayEnd = targetDayStart.add(const Duration(days: 1));
@@ -247,6 +290,7 @@ class CleCalendarService {
       }
       return out;
     } catch (e) {
+      lastErrorMessage = '予定の読み込みに失敗しました。URLや接続状態を確認してください。';
       return [];
     }
   }

@@ -35,8 +35,11 @@ class TodayTaskSuggester {
     List<TodayTaskAllocation> allocations = [];
     List<Assignment> unallocated = [];
 
-    // 未完了の課題のみを対象にする
-    final pendingAssignments = sortedAssignments.where((a) => !a.isCompleted).toList();
+    // 一覧には過去の課題を残すが、7日以上前に期限切れの課題は今日の提案から除外する。
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final pendingAssignments = sortedAssignments
+      .where((a) => !a.isCompleted && a.dueDate.isAfter(cutoff))
+      .toList();
 
     // 空き時間のコピーを作成
     List<TimeSlot> availableSlots = freeSlots
